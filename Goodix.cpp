@@ -1,29 +1,28 @@
 #include "Goodix.h"
 #include "Wire.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 // Interrupt handling
-volatile bool goodixIRQ = false;
+static TaskHandle_t xGoodixTouchTask = NULL;
 
 #if defined(ESP8266)
 void ICACHE_RAM_ATTR _goodix_irq_handler() {
-  noInterrupts();
-  goodixIRQ = true;
-  interrupts();
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  xTaskNotifyFromISR(xGoodixTouchTask, 1, eSetValueWithOverwrite, &xHigherPriorityTaskWoken);
 }
 #elif defined(ESP32)
 void IRAM_ATTR _goodix_irq_handler() {
-  noInterrupts();
-  goodixIRQ = true;
-  interrupts();
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  xTaskNotifyFromISR(xGoodixTouchTask, 1, eSetValueWithOverwrite, &xHigherPriorityTaskWoken);
 }
 #else
 void _goodix_irq_handler() {
-  noInterrupts();
-  goodixIRQ = true;
-  interrupts();
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  xTaskNotifyFromISR(xGoodixTouchTask, 1, eSetValueWithOverwrite, &xHigherPriorityTaskWoken);
 }
 #endif
-
 
 // Implementation
 Goodix::Goodix() {
@@ -47,6 +46,17 @@ bool Goodix::begin(uint8_t interruptPin, uint8_t resetPin, uint8_t addr) {
   return result;
 }
 
+
+void Goodix::touch_task(void* pvParameter)
+{
+    Goodix* goodix = (Goodix*)(pvParameter); //obtain the instance pointer
+    for(;;) {
+      if ((ulTaskNotifyTake(pdTRUE, portMAX_DELAY) > 0))  {
+        //printf("Touch\n");
+        goodix->onIRQ();
+      }
+    }
+}
 
 bool Goodix::reset() {
   msSleep(1);
@@ -79,6 +89,9 @@ bool Goodix::reset() {
   /* T5: 50ms */
   msSleep(51);
   pinMode(intPin, INPUT); // INT pin has no pullups so simple set to floating input
+
+  //start touch task
+  xTaskCreate(touch_task, "goodix_touch_task", 2048, this, 10, &xGoodixTouchTask);
 
   attachInterrupt(intPin, _goodix_irq_handler, RISING);
 
@@ -278,18 +291,8 @@ void Goodix::onIRQ() {
 	write(GOODIX_READ_COORD_ADDR, 0);
 }
 
-void Goodix::loop() {
-  noInterrupts();
-  bool irq = goodixIRQ;
-  goodixIRQ = false;
-  interrupts();
 
-  if (irq) {
-    onIRQ();
-  }
-}
-
-#define EAGAIN 100 			// Try again error
+//#define EAGAIN 100 			// Try again error
 #define I2C_READ_ERROR 155 // I2C read error
 
 int16_t Goodix::readInput(uint8_t *regState) {

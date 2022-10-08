@@ -50,7 +50,7 @@ class Goodix {
     bool begin(uint8_t interruptPin, uint8_t resetPin, uint8_t addr=GOODIX_I2C_ADDR_BA);
     bool reset();
     uint8_t test();
-    void loop();
+    static void touch_task(void* pvParameter);
 
     bool write(uint16_t reg, uint8_t value);
     bool writeBytes(uint16_t reg, uint8_t *data, int nbytes);
