@@ -258,6 +258,11 @@ void Goodix::onIRQ() {
   	{
 	  	return;
   	}
+
+    if (contacts == 1)
+      isTouched = true;
+    else
+      isTouched = false;
   	
     if (contacts > 0) {
     
@@ -289,6 +294,12 @@ void Goodix::onIRQ() {
     touchHandler(contacts, points);
 	}
 	write(GOODIX_READ_COORD_ADDR, 0);
+}
+
+bool Goodix::getTouch(uint16_t *x, uint16_t *y){
+  *x = points[0].x;
+  *y = points[0].y;
+  return isTouched;
 }
 
 
