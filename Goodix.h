@@ -52,6 +52,8 @@ class Goodix {
     uint8_t test();
     static void touch_task(void* pvParameter);
 
+    bool getTouch(uint16_t *x, uint16_t *y);
+
     bool write(uint16_t reg, uint8_t value);
     bool writeBytes(uint16_t reg, uint8_t *data, int nbytes);
     bool readBytes(uint16_t reg, uint8_t *data, int nbytes);
@@ -73,6 +75,8 @@ class Goodix {
   //--- Private routines ---
   private:
     uint8_t intPin, rstPin;
+    bool isTouched; 
+    
     void (*touchHandler)(int8_t, GTPoint*);
 
     void onIRQ();
